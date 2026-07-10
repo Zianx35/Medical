@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>내 약품 유효기간 관리</title>
+
+<!-- PWA: 홈 화면 추가용 설정 -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#38bdf8" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="약품관리" />
+
+<style>
+  :root {
+    --bg: #f7fafc;
+    --card-bg: #ffffff;
+    --primary: #38bdf8;
+    --primary-dark: #0ea5e9;
+    --text-main: #1f2937;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --safe: #34d399;
+    --radius: 16px;
+    --shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Noto Sans KR", sans-serif;
+    background: linear-gradient(180deg, #eef7ff 0%, #f7fafc 250px);
+    color: var(--text-main);
+    min-height: 100vh;
+  }
+
+  .app-header { text-align: center; padding: 40px 20px 24px; }
+  .app-header h1 { margin: 0 0 8px; font-size: 1.7rem; }
+  .subtitle { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+
+  .container { max-width: 640px; margin: 0 auto; padding: 0 16px 60px; }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 { margin-top: 0; font-size: 1.15rem; }
+
+  .input-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .input-card-header h2 { margin: 0; }
+
+  .urgent-summary { border: 1px solid #fecaca; }
+  .urgent-summary h2 { color: #b91c1c; }
+  .urgent-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .urgent-item:last-child { border-bottom: none; }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .toolbar input[type="text"] {
+    flex: 1;
+    min-width: 120px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+  }
+  .toolbar select {
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 0.85rem;
+    background: white;
+  }
+
+  .backup-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .backup-row .icon-btn { flex: 1; padding: 9px; }
+
+  .notif-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+  }
+  .notif-row button { white-space: nowrap; }
+
+  .med-form .form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .med-form label { font-size: 0.85rem; color: var(--text-muted); }
+  .med-form input {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .med-form input:focus { border-color: var(--primary); }
+
+  .med-form select {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 0.95rem;
+    outline: none;
+    background: white;
+    color: var(--text-main);
+  }
+  .med-form select:focus { border-color: var(--primary); }
+
+  .dispensed-helper {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  .dispensed-helper .form-row { margin-bottom: 10px; }
+  .dispensed-helper .btn-scan { width: 100%; }
+
+  .photo-row { display: flex; gap: 8px; align-items: center; }
+  .photo-row input[type="file"] {
+    flex: 1;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px dashed var(--border);
+    font-size: 0.85rem;
+    background: #f9fafb;
+  }
+
+  .btn-scan {
+    background: var(--mint, #34d399);
+    color: white;
+    font-weight: 600;
+    white-space: nowrap;
+    padding: 10px 14px;
+  }
+  .btn-scan:hover { filter: brightness(0.95); }
+  .btn-scan:disabled { opacity: 0.6; cursor: default; }
+
+  .photo-preview-wrap { margin-top: 10px; }
+  .photo-preview-wrap img {
+    max-width: 140px;
+    max-height: 140px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+
+  .scan-status {
+    margin: 8px 0 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .scan-status.success { color: var(--safe); }
+  .scan-status.error { color: var(--danger); }
+
+  .btn {
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    padding: 10px 16px;
+    transition: transform 0.1s, background 0.15s, box-shadow 0.15s;
+  }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+    width: 100%;
+    padding: 12px;
+    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(56, 189, 248, 0.35);
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+
+  .view-switch { display: flex; gap: 8px; margin-bottom: 16px; }
+  .btn-tab { flex: 1; background: #eef2f7; color: var(--text-muted); font-weight: 600; padding: 12px; }
+  .btn-tab.active { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(56, 189, 248, 0.3); }
+
+  .btn-ghost { background: transparent; color: var(--text-muted); font-size: 1.1rem; padding: 4px 10px; }
+  .btn-ghost:hover { color: var(--primary-dark); }
+
+  .hidden { display: none !important; }
+
+  .calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .calendar-header h2 { margin: 0; font-size: 1.05rem; }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .dot-danger { background: var(--danger); }
+  .dot-warning { background: var(--warning); }
+  .dot-safe { background: var(--safe); }
+
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-dow { text-align: center; font-size: 0.75rem; color: var(--text-muted); padding-bottom: 4px; }
+  .cal-cell {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    background: #f9fafb;
+    cursor: default;
+    position: relative;
+  }
+  .cal-cell.empty { background: transparent; }
+  .cal-cell.has-med { cursor: pointer; font-weight: 600; color: white; }
+  .cal-cell.has-med.danger { background: var(--danger); }
+  .cal-cell.has-med.warning { background: var(--warning); color: #4b3600; }
+  .cal-cell.has-med.safe { background: var(--safe); }
+  .cal-cell.today { outline: 2px solid var(--primary-dark); outline-offset: 1px; }
+
+  .day-detail { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .day-detail h3 { margin: 0 0 10px; font-size: 1rem; }
+
+  .med-list { display: flex; flex-direction: column; gap: 10px; }
+  .med-item {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .med-item .med-info { flex: 1; }
+  .med-item .med-name { font-weight: 600; margin-bottom: 2px; }
+
+  .tag-dispensed {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--primary-dark);
+    background: #e0f2fe;
+    border-radius: 999px;
+    padding: 2px 7px;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+  .med-item .med-sub { font-size: 0.8rem; color: var(--text-muted); }
+
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 999px;
+    color: white;
+    white-space: nowrap;
+  }
+  .badge-danger { background: var(--danger); }
+  .badge-warning { background: var(--warning); color: #4b3600; }
+  .badge-safe { background: var(--safe); }
+
+  .med-item-actions { display: flex; gap: 6px; }
+  .icon-btn { background: #f3f4f6; border: none; border-radius: 8px; padding: 6px 9px; cursor: pointer; font-size: 0.85rem; }
+  .icon-btn:hover { background: #e5e7eb; }
+
+  .empty-state { text-align: center; color: var(--text-muted); padding: 30px 10px; font-size: 0.9rem; }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 50;
+  }
+  .modal-box {
+    background: white;
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+  }
+  .modal-close { position: absolute; top: 12px; right: 12px; }
+  .modal-body { font-size: 0.92rem; line-height: 1.6; }
+  .muted { color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>💊 내 약품 유효기간 관리</h1>
+    <p class="subtitle">보유한 의약품을 등록하고 유효기간을 달력으로 확인하세요</p>
+  </header>
+
+  <main class="container">
+
+    <!-- 입력 영역 -->
+    <section class="card input-card">
+      <div class="input-card-header">
+        <h2 id="formTitle">약품 등록</h2>
+        <button type="button" id="btnCancelEdit" class="btn btn-ghost hidden">취소</button>
+      </div>
+      <form id="medForm" class="med-form">
+        <div class="form-row">
+          <label for="medName">약품명</label>
+          <input type="text" id="medName" placeholder="예: 타이레놀" required />
+        </div>
+        <div class="form-row">
+          <label for="medPackaging">약 형태 (중요! 사용기한 기준이 달라집니다)</label>
+          <select id="medPackaging">
+            <option value="original">제조사 원래 포장 그대로 (뜯지 않음)</option>
+            <option value="dispensed">병원 처방 후 약국에서 조제·소분한 약</option>
+          </select>
+        </div>
+        <div id="dispensedHelper" class="dispensed-helper hidden">
+          <p class="scan-status">조제약은 포장에 적힌 제조 유효기간이 아니라, <strong>조제받은 날짜 기준의 권장 사용기한</strong>을 따라야 해요.</p>
+          <div class="form-row">
+            <label for="dispenseDate">조제(수령)받은 날짜</label>
+            <input type="date" id="dispenseDate" />
+          </div>
+          <button type="button" id="btnCalcExpiry" class="btn btn-scan">📅 권장 사용기한 자동 계산</button>
+          <p id="calcStatus" class="scan-status"></p>
+        </div>
+        <div class="form-row">
+          <label for="medPhoto">약품 포장 사진으로 유효기간 인식 (선택)</label>
+          <div class="photo-row">
+            <input type="file" id="medPhoto" accept="image/*" capture="environment" />
+            <button type="button" id="btnScanPhoto" class="btn btn-scan">📷 사진으로 인식</button>
+          </div>
+          <div id="photoPreviewWrap" class="photo-preview-wrap hidden">
+            <img id="photoPreview" alt="업로드한 사진 미리보기" />
+          </div>
+          <p id="scanStatus" class="scan-status"></p>
+        </div>
+        <div class="form-row">
+          <label for="medExpiry">유효기간 / 사용기한 — 직접 입력, 사진 인식, 또는 자동 계산 결과</label>
+          <input type="date" id="medExpiry" required />
+        </div>
+        <div class="form-row">
+          <label for="medQty">수량 (선택)</label>
+          <input type="text" id="medQty" placeholder="예: 20정" />
+        </div>
+        <div class="form-row">
+          <label for="medType">제형 (선택 — 올바른 폐기 방법 안내에 사용)</label>
+          <select id="medType">
+            <option value="">선택 안 함</option>
+            <option value="tablet">알약 / 캡슐</option>
+            <option value="powder">가루약</option>
+            <option value="liquid">물약 / 시럽</option>
+            <option value="ointment">연고 / 크림</option>
+            <option value="patch">파스 / 패치</option>
+            <option value="spray">스프레이 / 흡입제</option>
+            <option value="injection">주사제 / 인슐린펜</option>
+            <option value="other">기타</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="medCategory">분류 태그 (선택)</label>
+          <input type="text" id="medCategory" placeholder="예: 상비약, 아이약, 감기약" />
+        </div>
+        <div class="form-row">
+          <label for="medMemo">메모 (선택)</label>
+          <input type="text" id="medMemo" placeholder="예: 감기약, 상비약" />
+        </div>
+        <button type="submit" id="submitBtn" class="btn btn-primary">＋ 약품 추가</button>
+      </form>
+    </section>
+
+    <!-- 급한 약 요약 -->
+    <section id="urgentSummary" class="card urgent-summary hidden">
+      <h2>⏳ 가장 급한 약</h2>
+      <div id="urgentList"></div>
+    </section>
+
+    <!-- 화면 전환 버튼 -->
+    <nav class="view-switch">
+      <button id="btnShowCalendar" class="btn btn-tab active">📅 달력 보기</button>
+      <button id="btnShowInfo" class="btn btn-tab">📋 정보 보기</button>
+    </nav>
+
+
+    <!-- 달력 화면 -->
+    <section id="calendarView" class="card view-panel">
+      <div class="calendar-header">
+        <button id="prevMonth" class="btn btn-ghost">‹</button>
+        <h2 id="calendarTitle"></h2>
+        <button id="nextMonth" class="btn btn-ghost">›</button>
+      </div>
+      <div class="legend">
+        <span class="legend-item"><i class="dot dot-danger"></i> 7일 이내 만료</span>
+        <span class="legend-item"><i class="dot dot-warning"></i> 30일 이내 만료</span>
+        <span class="legend-item"><i class="dot dot-safe"></i> 여유 있음</span>
+      </div>
+      <div id="calendarGrid" class="calendar-grid"></div>
+
+      <div id="dayDetail" class="day-detail hidden">
+        <h3 id="dayDetailTitle"></h3>
+        <div id="dayDetailList"></div>
+      </div>
+    </section>
+
+    <!-- 정보 화면 -->
+    <section id="infoView" class="card view-panel hidden">
+      <h2>등록된 약품 정보</h2>
+
+      <div class="notif-row">
+        <span id="notifStatusText">🔔 임박 알림을 받으려면 권한을 허용해주세요</span>
+        <button id="btnEnableNotif" class="icon-btn">허용</button>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" id="searchInput" placeholder="약품명 검색..." />
+        <select id="filterSelect">
+          <option value="all">전체</option>
+          <option value="danger">7일 이내</option>
+          <option value="warning">30일 이내</option>
+          <option value="dispensed">조제약만</option>
+        </select>
+      </div>
+
+      <div class="backup-row">
+        <button id="btnExport" class="icon-btn">⬇️ 백업 내보내기</button>
+        <button id="btnImportTrigger" class="icon-btn">⬆️ 백업 가져오기</button>
+        <input type="file" id="importFile" accept="application/json" class="hidden" />
+      </div>
+
+      <div id="medList" class="med-list"></div>
+    </section>
+
+  </main>
+
+  <!-- 약품 상세 정보 모달 -->
+  <div id="infoModal" class="modal hidden">
+    <div class="modal-box">
+      <button id="closeModal" class="btn btn-ghost modal-close">✕</button>
+      <h3 id="modalMedName"></h3>
+      <div id="modalBody" class="modal-body">
+        <p class="muted">정보를 불러오는 중...</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* =========================================================
+   내 약품 유효기간 관리 - script
+   데이터는 브라우저 localStorage 에 저장됩니다.
+   ========================================================= */
+
+const STORAGE_KEY = "medTracker.medications";
+
+function loadMeds() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMeds(meds) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(meds));
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function daysUntil(dateStr) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / (1000 * 60 * 60 * 24));
+}
+
+function urgencyClass(dateStr) {
+  const d = daysUntil(dateStr);
+  if (d < 0) return "danger";
+  if (d <= 7) return "danger";
+  if (d <= 30) return "warning";
+  return "safe";
+}
+
+/* ---------------------------------------------------------
+   폼 제출: 약품 추가 / 수정
+--------------------------------------------------------- */
+const medForm = document.getElementById("medForm");
+const formTitle = document.getElementById("formTitle");
+const submitBtn = document.getElementById("submitBtn");
+const btnCancelEdit = document.getElementById("btnCancelEdit");
+let editingId = null; // null이면 신규 등록 모드, 값이 있으면 수정 모드
+
+medForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = document.getElementById("medName").value.trim();
+  const expiry = document.getElementById("medExpiry").value;
+  const qty = document.getElementById("medQty").value.trim();
+  const type = document.getElementById("medType").value;
+  const packaging = document.getElementById("medPackaging").value;
+  const dispenseDate = document.getElementById("dispenseDate").value;
+  const category = document.getElementById("medCategory").value.trim();
+  const memo = document.getElementById("medMemo").value.trim();
+  if (!name || !expiry) return;
+
+  const meds = loadMeds();
+
+  if (editingId) {
+    const idx = meds.findIndex((m) => m.id === editingId);
+    if (idx !== -1) {
+      meds[idx] = { ...meds[idx], name, expiry, qty, type, packaging, dispenseDate, category, memo };
+    }
+    saveMeds(meds);
+    exitEditMode();
+  } else {
+    meds.push({ id: uid(), name, expiry, qty, type, packaging, dispenseDate, category, memo });
+    saveMeds(meds);
+    medForm.reset();
+    dispensedHelper.classList.add("hidden");
+  }
+
+  renderCalendar();
+  renderInfoList();
+  renderUrgentSummary();
+});
+
+function enterEditMode(med) {
+  editingId = med.id;
+  document.getElementById("medName").value = med.name;
+  document.getElementById("medExpiry").value = med.expiry;
+  document.getElementById("medQty").value = med.qty || "";
+  document.getElementById("medType").value = med.type || "";
+  document.getElementById("medPackaging").value = med.packaging || "original";
+  document.getElementById("dispenseDate").value = med.dispenseDate || "";
+  document.getElementById("medCategory").value = med.category || "";
+  document.getElementById("medMemo").value = med.memo || "";
+  dispensedHelper.classList.toggle("hidden", med.packaging !== "dispensed");
+
+  formTitle.textContent = "약품 수정";
+  submitBtn.textContent = "✓ 수정 완료";
+  btnCancelEdit.classList.remove("hidden");
+
+  document.querySelector(".input-card").scrollIntoView({ behavior: "smooth" });
+}
+
+function exitEditMode() {
+  editingId = null;
+  medForm.reset();
+  dispensedHelper.classList.add("hidden");
+  formTitle.textContent = "약품 등록";
+  submitBtn.textContent = "＋ 약품 추가";
+  btnCancelEdit.classList.add("hidden");
+}
+
+btnCancelEdit.addEventListener("click", exitEditMode);
+
+/* ---------------------------------------------------------
+   사진으로 유효기간 인식
+--------------------------------------------------------- */
+const medPhotoInput = document.getElementById("medPhoto");
+const btnScanPhoto = document.getElementById("btnScanPhoto");
+const photoPreviewWrap = document.getElementById("photoPreviewWrap");
+const photoPreview = document.getElementById("photoPreview");
+const scanStatus = document.getElementById("scanStatus");
+const medExpiryInput = document.getElementById("medExpiry");
+
+let selectedPhotoBase64 = null; // "data:image/...;base64,...." 형태
+
+medPhotoInput.addEventListener("change", () => {
+  const file = medPhotoInput.files[0];
+  scanStatus.textContent = "";
+  scanStatus.className = "scan-status";
+
+  if (!file) {
+    selectedPhotoBase64 = null;
+    photoPreviewWrap.classList.add("hidden");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    selectedPhotoBase64 = reader.result;
+    photoPreview.src = selectedPhotoBase64;
+    photoPreviewWrap.classList.remove("hidden");
+  };
+  reader.readAsDataURL(file);
+});
+
+btnScanPhoto.addEventListener("click", async () => {
+  if (!selectedPhotoBase64) {
+    scanStatus.textContent = "먼저 약품 포장 사진을 선택해주세요.";
+    scanStatus.className = "scan-status error";
+    return;
+  }
+
+  btnScanPhoto.disabled = true;
+  scanStatus.textContent = "사진에서 유효기간을 인식하는 중...";
+  scanStatus.className = "scan-status";
+
+  try {
+    const result = await extractExpiryFromImage(selectedPhotoBase64);
+    if (result && result.expiry) {
+      medExpiryInput.value = result.expiry; // YYYY-MM-DD
+      scanStatus.textContent = `인식 완료: ${result.expiry} (틀리면 위 날짜를 직접 수정하세요)`;
+      scanStatus.className = "scan-status success";
+    } else {
+      scanStatus.textContent = "날짜를 정확히 인식하지 못했습니다. 아래 날짜를 직접 입력해주세요.";
+      scanStatus.className = "scan-status error";
+    }
+  } catch (err) {
+    scanStatus.textContent = `인식 실패: ${err.message || err}. 아래 날짜를 직접 입력해주세요.`;
+    scanStatus.className = "scan-status error";
+  } finally {
+    btnScanPhoto.disabled = false;
+  }
+});
+
+/* ============================================================
+   ⭐⭐⭐  여기에 AI "사진 인식(비전)" 코드를 넣으세요  ⭐⭐⭐
+   ============================================================
+   selectedPhotoBase64 (data URL) 를 사용 중인 AI 비전 API로 보내서
+   포장에 인쇄된 유효기간을 읽어오는 함수입니다.
+   반드시 { expiry: "YYYY-MM-DD" } 형태(또는 실패 시 null)를
+   반환하도록 맞춰주세요. 나머지 코드는 수정할 필요 없습니다.
+   ============================================================ */
+async function extractExpiryFromImage(imageDataUrl) {
+
+  // ---------- 이 아래 부분을 실제 AI 비전 호출 코드로 교체 ----------
+
+  // 예시) 이미지를 base64 순수 문자열만 추출해서 전송하는 경우:
+  // const base64Only = imageDataUrl.split(",")[1];
+  // const res = await fetch("https://YOUR-AI-VISION-ENDPOINT", {
+  //   method: "POST",
+  //   headers: { "Content-Type": "application/json" },
+  //   body: JSON.stringify({
+  //     image: base64Only,
+  //     prompt: "이 약품 포장 사진에서 유효기간(EXP)을 찾아 YYYY-MM-DD 형식으로만 답해줘.",
+  //   }),
+  // });
+  // const data = await res.json();
+  // // data.expiry 가 "YYYY-MM-DD" 형식이라고 가정
+  // return { expiry: data.expiry || null };
+
+  // ---------- 교체 끝 ----------
+
+  // 연동 전 임시 응답 (실제 연동 코드로 교체되면 이 줄은 삭제하세요)
+  throw new Error("AI 사진 인식이 아직 연동되지 않았습니다");
+}
+/* ============================================================
+   ⭐⭐⭐  AI 사진 인식 코드 삽입 구간 끝  ⭐⭐⭐
+   ============================================================ */
+
+/* ---------------------------------------------------------
+   조제약(처방약) 권장 사용기한 자동 계산
+   원포장 유효기간과 달리, 약국에서 소분·조제한 약은
+   조제받은 날짜를 기준으로 훨씬 짧은 사용기한을 권장합니다.
+--------------------------------------------------------- */
+const medPackagingSelect = document.getElementById("medPackaging");
+const dispensedHelper = document.getElementById("dispensedHelper");
+const dispenseDateInput = document.getElementById("dispenseDate");
+const btnCalcExpiry = document.getElementById("btnCalcExpiry");
+const calcStatus = document.getElementById("calcStatus");
+
+// 제형별 권장 사용기한(일수) — 여러 약사회/병원 안내 자료 기준 대략치.
+// 개인 보관 상태에 따라 짧아질 수 있어 다소 보수적으로 잡았습니다.
+const PRESCRIPTION_DAYS = {
+  tablet: 180,   // 약포지에 조제된 알약: 최대 6개월 (되도록 1~2개월 내 권장)
+  powder: 30,    // 가루약(산제): 분쇄 후 변질이 빨라 1개월 이내 권장
+  liquid: 30,    // 소분한 물약/시럽: 1개월 이내 권장
+  ointment: 30,  // 소분한 연고/크림: 1개월 이내 권장
+  patch: 90,     // 파스/패치: 대략 3개월 이내 권장
+  spray: 30,     // 점비/가글/스프레이 등 외용액: 1개월 이내 권장
+  injection: 30, // 조제/소분된 주사제: 1개월 이내 권장 (병원 안내 우선)
+  other: 90,
+  "": 90,
+};
+
+medPackagingSelect.addEventListener("change", () => {
+  if (medPackagingSelect.value === "dispensed") {
+    dispensedHelper.classList.remove("hidden");
+  } else {
+    dispensedHelper.classList.add("hidden");
+  }
+});
+
+btnCalcExpiry.addEventListener("click", () => {
+  const dispenseDate = dispenseDateInput.value;
+  if (!dispenseDate) {
+    calcStatus.textContent = "조제받은 날짜를 먼저 입력해주세요.";
+    calcStatus.className = "scan-status error";
+    return;
+  }
+
+  const type = document.getElementById("medType").value;
+  const days = PRESCRIPTION_DAYS[type] ?? PRESCRIPTION_DAYS[""];
+
+  const base = new Date(dispenseDate);
+  base.setDate(base.getDate() + days);
+  const yyyy = base.getFullYear();
+  const mm = String(base.getMonth() + 1).padStart(2, "0");
+  const dd = String(base.getDate()).padStart(2, "0");
+  const resultDate = `${yyyy}-${mm}-${dd}`;
+
+  medExpiryInput.value = resultDate;
+  calcStatus.textContent = `권장 사용기한: ${resultDate} (약 ${days}일 후) — 실제 상태를 보고 이상하면 더 일찍 폐기하세요.`;
+  calcStatus.className = "scan-status success";
+});
+
+/* ---------------------------------------------------------
+   화면 전환 (달력 / 정보)
+--------------------------------------------------------- */
+const calendarView = document.getElementById("calendarView");
+const infoView = document.getElementById("infoView");
+const btnShowCalendar = document.getElementById("btnShowCalendar");
+const btnShowInfo = document.getElementById("btnShowInfo");
+
+btnShowCalendar.addEventListener("click", () => {
+  calendarView.classList.remove("hidden");
+  infoView.classList.add("hidden");
+  btnShowCalendar.classList.add("active");
+  btnShowInfo.classList.remove("active");
+});
+
+btnShowInfo.addEventListener("click", () => {
+  infoView.classList.remove("hidden");
+  calendarView.classList.add("hidden");
+  btnShowInfo.classList.add("active");
+  btnShowCalendar.classList.remove("active");
+  renderInfoList();
+});
+
+/* ---------------------------------------------------------
+   달력 렌더링
+--------------------------------------------------------- */
+let calYear, calMonth; // calMonth: 0-11
+
+function initCalendarState() {
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+}
+
+document.getElementById("prevMonth").addEventListener("click", () => {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  renderCalendar();
+});
+
+document.getElementById("nextMonth").addEventListener("click", () => {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+});
+
+function renderCalendar() {
+  const meds = loadMeds();
+  const title = document.getElementById("calendarTitle");
+  title.textContent = `${calYear}년 ${calMonth + 1}월`;
+
+  const grid = document.getElementById("calendarGrid");
+  grid.innerHTML = "";
+
+  const dowNames = ["일", "월", "화", "수", "목", "금", "토"];
+  dowNames.forEach((d) => {
+    const el = document.createElement("div");
+    el.className = "cal-dow";
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+
+  const byDate = {};
+  meds.forEach((m) => {
+    const d = new Date(m.expiry);
+    if (d.getFullYear() === calYear && d.getMonth() === calMonth) {
+      const day = d.getDate();
+      (byDate[day] = byDate[day] || []).push(m);
+    }
+  });
+
+  for (let i = 0; i < firstDay; i++) {
+    const empty = document.createElement("div");
+    empty.className = "cal-cell empty";
+    grid.appendChild(empty);
+  }
+
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear() === calYear && today.getMonth() === calMonth;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cell = document.createElement("div");
+    cell.className = "cal-cell";
+    if (isCurrentMonth && today.getDate() === day) cell.classList.add("today");
+
+    const dayMeds = byDate[day];
+    if (dayMeds && dayMeds.length) {
+      const urgencies = dayMeds.map((m) => urgencyClass(m.expiry));
+      const worst = urgencies.includes("danger") ? "danger" : urgencies.includes("warning") ? "warning" : "safe";
+      cell.classList.add("has-med", worst);
+      cell.addEventListener("click", () => showDayDetail(day, dayMeds));
+    }
+
+    cell.innerHTML = `<span>${day}</span>`;
+    grid.appendChild(cell);
+  }
+}
+
+function showDayDetail(day, meds) {
+  const detail = document.getElementById("dayDetail");
+  const title = document.getElementById("dayDetailTitle");
+  const list = document.getElementById("dayDetailList");
+
+  detail.classList.remove("hidden");
+  title.textContent = `${calYear}년 ${calMonth + 1}월 ${day}일 만료 예정`;
+  list.innerHTML = "";
+
+  meds.forEach((m) => {
+    const row = document.createElement("div");
+    row.className = "med-item";
+    row.innerHTML = `
+      <div class="med-info">
+        <div class="med-name">${escapeHtml(m.name)}</div>
+        <div class="med-sub">${m.qty ? escapeHtml(m.qty) + " · " : ""}${escapeHtml(m.memo || "")}</div>
+      </div>
+      <button class="icon-btn" data-id="${m.id}">ℹ️ 정보</button>
+    `;
+    row.querySelector("button").addEventListener("click", () => openInfoModal(m));
+    list.appendChild(row);
+  });
+}
+
+/* ---------------------------------------------------------
+   정보(리스트) 화면 렌더링 (검색/필터 포함)
+--------------------------------------------------------- */
+const searchInput = document.getElementById("searchInput");
+const filterSelect = document.getElementById("filterSelect");
+searchInput.addEventListener("input", renderInfoList);
+filterSelect.addEventListener("change", renderInfoList);
+
+function renderInfoList() {
+  let meds = loadMeds().slice().sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
+  const container = document.getElementById("medList");
+
+  const keyword = searchInput.value.trim().toLowerCase();
+  const filter = filterSelect.value;
+
+  if (keyword) {
+    meds = meds.filter((m) =>
+      m.name.toLowerCase().includes(keyword) ||
+      (m.category || "").toLowerCase().includes(keyword) ||
+      (m.memo || "").toLowerCase().includes(keyword)
+    );
+  }
+  if (filter === "danger" || filter === "warning") {
+    meds = meds.filter((m) => urgencyClass(m.expiry) === filter);
+  } else if (filter === "dispensed") {
+    meds = meds.filter((m) => m.packaging === "dispensed");
+  }
+
+  container.innerHTML = "";
+
+  if (meds.length === 0) {
+    container.innerHTML = `<div class="empty-state">조건에 맞는 약품이 없습니다.</div>`;
+    return;
+  }
+
+  meds.forEach((m) => {
+    const d = daysUntil(m.expiry);
+    const cls = urgencyClass(m.expiry);
+    const badgeText = d < 0 ? `기한 만료 (${Math.abs(d)}일 지남)` : d === 0 ? "오늘 만료" : `D-${d}`;
+
+    const item = document.createElement("div");
+    item.className = "med-item";
+    item.innerHTML = `
+      <div class="med-info">
+        <div class="med-name">${escapeHtml(m.name)} ${m.packaging === "dispensed" ? '<span class="tag-dispensed">조제약</span>' : ""}</div>
+        <div class="med-sub">${m.expiry} ${m.qty ? "· " + escapeHtml(m.qty) : ""} ${m.category ? "· " + escapeHtml(m.category) : ""}</div>
+      </div>
+      <span class="badge badge-${cls}">${badgeText}</span>
+      <div class="med-item-actions">
+        <button class="icon-btn" data-action="info">ℹ️</button>
+        <button class="icon-btn" data-action="edit">✏️</button>
+        <button class="icon-btn" data-action="delete">🗑️</button>
+      </div>
+    `;
+    item.querySelector('[data-action="info"]').addEventListener("click", () => openInfoModal(m));
+    item.querySelector('[data-action="edit"]').addEventListener("click", () => enterEditMode(m));
+    item.querySelector('[data-action="delete"]').addEventListener("click", () => deleteMed(m.id));
+    container.appendChild(item);
+  });
+}
+
+function deleteMed(id) {
+  if (!confirm("이 약품을 삭제할까요?")) return;
+  const meds = loadMeds().filter((m) => m.id !== id);
+  saveMeds(meds);
+  renderInfoList();
+  renderCalendar();
+  renderUrgentSummary();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ---------------------------------------------------------
+   급한 약 요약 카드
+--------------------------------------------------------- */
+function renderUrgentSummary() {
+  const meds = loadMeds().slice().sort((a, b) => new Date(a.expiry) - new Date(b.expiry));
+  const urgent = meds.filter((m) => daysUntil(m.expiry) <= 30).slice(0, 3);
+
+  const section = document.getElementById("urgentSummary");
+  const list = document.getElementById("urgentList");
+
+  if (urgent.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  section.classList.remove("hidden");
+  list.innerHTML = urgent.map((m) => {
+    const d = daysUntil(m.expiry);
+    const cls = urgencyClass(m.expiry);
+    const label = d < 0 ? `${Math.abs(d)}일 지남` : d === 0 ? "오늘 만료" : `D-${d}`;
+    return `<div class="urgent-item">
+      <span>${escapeHtml(m.name)}</span>
+      <span class="badge badge-${cls}">${label}</span>
+    </div>`;
+  }).join("");
+}
+
+/* ---------------------------------------------------------
+   백업 내보내기 / 가져오기
+--------------------------------------------------------- */
+document.getElementById("btnExport").addEventListener("click", () => {
+  const meds = loadMeds();
+  const blob = new Blob([JSON.stringify(meds, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const today = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `med-backup-${today}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+const importFileInput = document.getElementById("importFile");
+document.getElementById("btnImportTrigger").addEventListener("click", () => importFileInput.click());
+
+importFileInput.addEventListener("change", () => {
+  const file = importFileInput.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const imported = JSON.parse(reader.result);
+      if (!Array.isArray(imported)) throw new Error("형식이 올바르지 않습니다");
+
+      const merge = confirm(
+        "기존 목록에 이어서 추가하려면 [확인], 기존 목록을 지우고 새로 덮어쓰려면 [취소]를 누르세요."
+      );
+      const current = merge ? loadMeds() : [];
+      // id 중복 방지를 위해 새 id 부여
+      const withNewIds = imported.map((m) => ({ ...m, id: uid() }));
+      saveMeds([...current, ...withNewIds]);
+
+      renderCalendar();
+      renderInfoList();
+      renderUrgentSummary();
+      alert(`${imported.length}개의 약품을 가져왔습니다.`);
+    } catch (err) {
+      alert("파일을 읽는 데 실패했습니다. 올바른 백업(JSON) 파일인지 확인해주세요.");
+    }
+    importFileInput.value = "";
+  };
+  reader.readAsText(file);
+});
+
+/* ---------------------------------------------------------
+   브라우저 알림 (임박한 약 있으면 알림 표시)
+   ⚠️ 앱을 실제로 열었을 때만 확인/발송되는 방식입니다.
+   앱을 켜지 않아도 알아서 오는 "푸시 알림"은 아닙니다.
+--------------------------------------------------------- */
+const btnEnableNotif = document.getElementById("btnEnableNotif");
+const notifStatusText = document.getElementById("notifStatusText");
+
+function updateNotifUI() {
+  if (!("Notification" in window)) {
+    notifStatusText.textContent = "이 브라우저는 알림을 지원하지 않아요";
+    btnEnableNotif.classList.add("hidden");
+    return;
+  }
+  if (Notification.permission === "granted") {
+    notifStatusText.textContent = "🔔 임박 알림이 켜져 있어요 (앱을 열 때 확인)";
+    btnEnableNotif.classList.add("hidden");
+  } else if (Notification.permission === "denied") {
+    notifStatusText.textContent = "🔕 알림이 차단되어 있어요 (브라우저 설정에서 허용 필요)";
+    btnEnableNotif.classList.add("hidden");
+  } else {
+    notifStatusText.textContent = "🔔 임박 알림을 받으려면 권한을 허용해주세요";
+    btnEnableNotif.classList.remove("hidden");
+  }
+}
+
+btnEnableNotif.addEventListener("click", async () => {
+  const result = await Notification.requestPermission();
+  updateNotifUI();
+  if (result === "granted") checkAndNotify();
+});
+
+function checkAndNotify() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const meds = loadMeds();
+  const urgent = meds.filter((m) => {
+    const d = daysUntil(m.expiry);
+    return d <= 7; // 7일 이내(지난 것 포함)
+  });
+  if (urgent.length === 0) return;
+
+  const names = urgent.slice(0, 3).map((m) => m.name).join(", ");
+  new Notification("💊 유효기간 임박 약품 알림", {
+    body: `${names} 등 ${urgent.length}개의 약품이 곧 만료되거나 이미 만료됐어요.`,
+    icon: "icon-192.png",
+  });
+}
+
+/* ---------------------------------------------------------
+   상세 정보 모달
+--------------------------------------------------------- */
+const infoModal = document.getElementById("infoModal");
+const modalMedName = document.getElementById("modalMedName");
+const modalBody = document.getElementById("modalBody");
+
+document.getElementById("closeModal").addEventListener("click", () => {
+  infoModal.classList.add("hidden");
+});
+
+async function openInfoModal(med) {
+  modalMedName.textContent = med.name;
+  modalBody.innerHTML = `<p class="muted">정보를 불러오는 중...</p>`;
+  infoModal.classList.remove("hidden");
+
+  // e약은요(효능/사용법/주의사항/보관법)와 AI(유효기간 경과 위험)를 동시에 조회
+  const [easyResult, riskResult] = await Promise.allSettled([
+    getEasyDrugInfo(med.name),
+    getExpiryRiskInfo(med.name),
+  ]);
+
+  const easy = easyResult.status === "fulfilled" ? easyResult.value : null;
+  const easyError = easyResult.status === "rejected" ? easyResult.reason : null;
+  const riskHtml = riskResult.status === "fulfilled"
+    ? riskResult.value
+    : `<p class="muted">위험 정보를 불러오지 못했습니다. (${escapeHtml(String(riskResult.reason && riskResult.reason.message || riskResult.reason))})</p>`;
+
+  let easySection;
+  if (easy) {
+    easySection = `
+      ${easy.efficacy ? `<p><strong>💊 효능</strong><br/>${escapeHtml(easy.efficacy)}</p>` : ""}
+      ${easy.usage ? `<p><strong>📋 사용법(용법)</strong><br/>${escapeHtml(easy.usage)}</p>` : ""}
+      ${easy.caution ? `<p><strong>⚠️ 섭취 시 주의사항</strong><br/>${escapeHtml(easy.caution)}</p>` : ""}
+      ${easy.storage ? `<p><strong>📦 보관 장소</strong><br/>${escapeHtml(easy.storage)}</p>` : ""}
+      ${!easy.efficacy && !easy.usage && !easy.caution && !easy.storage
+        ? `<p class="muted">"${escapeHtml(med.name)}"에 대한 상세 정보를 찾지 못했습니다. 정확한 제품명으로 다시 시도해보세요.</p>` : ""}
+    `;
+  } else {
+    easySection = `<p class="muted">공공데이터(e약은요) 조회에 실패했습니다. ${easyError ? escapeHtml(String(easyError.message || easyError)) : ""}</p>`;
+  }
+
+  const packagingNote = med.packaging === "dispensed"
+    ? `<p><strong>🏥 병원 처방 조제약</strong><br/>
+        이 약은 약국에서 소분·조제된 약이라, 등록하신 날짜는 <strong>제조사 유효기간이 아니라 조제일 기준 권장 사용기한</strong>입니다.
+        ${med.dispenseDate ? `조제받은 날: ${med.dispenseDate}` : ""}
+        보관 상태가 좋지 않거나 색·냄새가 변했다면 기한 전이라도 폐기하세요.
+      </p>`
+    : `<p><strong>📦 원래 포장 상태</strong><br/>제조사가 포장에 표시한 유효기간을 그대로 따르면 됩니다.</p>`;
+
+  modalBody.innerHTML = `
+    <p><strong>유효기간:</strong> ${med.expiry}</p>
+    ${med.qty ? `<p><strong>수량:</strong> ${escapeHtml(med.qty)}</p>` : ""}
+    ${med.memo ? `<p><strong>메모:</strong> ${escapeHtml(med.memo)}</p>` : ""}
+    <hr />
+    ${packagingNote}
+    <hr />
+    ${easySection}
+    <hr />
+    <p><strong>⏰ 유효기간이 지나면?</strong></p>
+    ${riskHtml}
+    <hr />
+    <p><strong>🗑️ 올바른 폐기 방법</strong><br/>${escapeHtml(getDisposalGuide(med.type))}</p>
+  `;
+}
+
+/* ============================================================
+   올바른 폐기 방법 안내 (고정 데이터 — API/AI 불필요, 무료)
+   ============================================================ */
+const DISPOSAL_GUIDE = {
+  tablet: "알약·캡슐은 포장(PTP)에서 꺼내 한데 모은 뒤, 약국이나 보건소의 '폐의약품 수거함'에 배출하세요. 일반 쓰레기통이나 하수구에 버리지 마세요.",
+  powder: "가루약은 포장을 뜯지 말고 그대로, 또는 봉투에 모아 약국·보건소의 폐의약품 수거함에 배출하세요.",
+  liquid: "물약·시럽은 용기째 그대로 약국·보건소의 폐의약품 수거함에 배출하세요. 하수구나 변기에 버리면 수질 오염을 일으킬 수 있어 절대 안 됩니다.",
+  ointment: "연고·크림은 튜브·용기째 그대로 약국·보건소의 폐의약품 수거함에 배출하세요.",
+  patch: "파스·패치제는 붙어있던 접착면을 안쪽으로 접어 밀봉한 뒤, 약국·보건소의 폐의약품 수거함에 배출하세요.",
+  spray: "스프레이·흡입제는 내용물이 남아있는 상태로 약국·보건소의 폐의약품 수거함에 배출하세요. 압력 용기이므로 임의로 구멍을 뚫거나 소각하지 마세요.",
+  injection: "주사제·인슐린펜, 특히 바늘(니들)은 일반 폐의약품과 분리해서, 별도의 '의료폐기물(손상성 폐기물)' 전용 용기에 담아 보건소나 병원에 문의 후 배출하세요. 일반 수거함에 넣으면 안 됩니다.",
+  other: "약국이나 보건소의 폐의약품 수거함에 배출하는 것이 원칙입니다. 정확한 처리 방법이 헷갈리면 가까운 약국에 문의하세요.",
+  "": "약 종류에 따라 배출 방법이 조금씩 다릅니다. 일반적으로는 가까운 약국이나 보건소의 '폐의약품 수거함'에 배출하며, 일반 쓰레기통이나 하수구에 버리지 않는 것이 원칙입니다.",
+};
+
+function getDisposalGuide(type) {
+  return DISPOSAL_GUIDE[type] || DISPOSAL_GUIDE[""];
+}
+
+/* ============================================================
+   1) 공공데이터 "e약은요" API — 효능 / 사용법 / 주의사항 / 보관법
+   ============================================================
+   data.go.kr 에서 "식품의약품안전처_의약품개요정보(e약은요)" 를
+   별도로 활용신청해서 발급받은 서비스키를 아래에 넣어주세요.
+   ============================================================ */
+
+// ⭐ 여기에 e약은요 API 서비스키(디코딩된 일반 인증키)를 넣으세요
+const EASY_DRUG_SERVICE_KEY = "1a21d7590a172eb2b8f4c2b5821f2a161039fda4fff0054e89983164c4702c36";
+
+async function getEasyDrugInfo(medName) {
+  const url = new URL("https://apis.data.go.kr/1471000/DrbEasyDrugInfoService/getDrbEasyDrugList");
+  url.searchParams.set("serviceKey", EASY_DRUG_SERVICE_KEY);
+  url.searchParams.set("itemName", medName);
+  url.searchParams.set("type", "json");
+  url.searchParams.set("numOfRows", "1");
+  url.searchParams.set("pageNo", "1");
+
+  // ※ 주의: data.go.kr API는 브라우저에서 직접 호출 시 CORS로 막힐 수 있습니다.
+  // 이 경우 아래 fetch 주소를 자체 서버/서버리스 함수(프록시) 주소로 바꿔야 합니다.
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`API 응답 오류 (${res.status})`);
+  const data = await res.json();
+
+  const item = data?.body?.items?.[0];
+  if (!item) return null;
+
+  return {
+    efficacy: item.efcyQesitm || "",
+    usage: item.useMethodQesitm || "",
+    caution: [item.atpnWarnQesitm, item.atpnQesitm].filter(Boolean).join("\n"),
+    storage: item.depositMethodQesitm || "",
+  };
+}
+
+/* ============================================================
+   ⭐⭐⭐  2) 여기에 AI 코드를 넣으세요  (AI CODE GOES HERE)  ⭐⭐⭐
+   ============================================================
+   e약은요 API에는 없는 "유효기간이 지난 약을 먹으면 어떻게 되는지"
+   설명은 이미 대여하신 AI가 담당합니다.
+   medName을 받아서 HTML 문자열을 반환하도록 안쪽만 채워주세요.
+   ============================================================ */
+async function getExpiryRiskInfo(medName) {
+
+  // ---------- 이 아래 부분을 실제 AI 호출 코드로 교체 ----------
+
+  // const prompt = `${medName}의 유효기간이 지나면 효능이 줄어드는지,
+  // 또는 부작용/유해물질이 생길 위험이 있는지 일반 소비자가 이해하기
+  // 쉽게 3~4문장으로 설명해줘.`;
+  //
+  // const res = await fetch("https://YOUR-AI-ENDPOINT", {
+  //   method: "POST",
+  //   headers: { "Content-Type": "application/json" },
+  //   body: JSON.stringify({ query: prompt }),
+  // });
+  // const data = await res.json();
+  // return `<p>${escapeHtml(data.answer)}</p>`;
+
+  // ---------- 교체 끝 ----------
+
+  // AI가 아직 연동되지 않았을 때 보여줄 기본 안내문 (연동 후 삭제)
+  return `<p class="muted">
+    일반적으로 유효기간이 지난 의약품은 성분이 서서히 분해되며 효능이
+    떨어질 수 있고, 일부는 변질되어 부작용을 일으킬 수도 있습니다.
+    복용하지 말고 가까운 약국의 폐의약품 수거함에 배출하는 것을
+    권장합니다. (AI 연동 전 기본 안내문 — <code>getExpiryRiskInfo()</code>
+    함수에 AI 호출 코드를 넣으면 약품별 맞춤 설명으로 바뀝니다)
+  </p>`;
+}
+/* ============================================================
+   ⭐⭐⭐  AI 코드 삽입 구간 끝  ⭐⭐⭐
+   ============================================================ */
+
+/* ---------------------------------------------------------
+   초기화
+--------------------------------------------------------- */
+initCalendarState();
+renderCalendar();
+renderInfoList();
+renderUrgentSummary();
+updateNotifUI();
+checkAndNotify(); // 이미 알림 권한이 허용돼 있다면 앱 켤 때마다 확인
+
+// PWA: 서비스 워커 등록 (홈 화면 설치/오프라인 지원)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      // 등록 실패해도 앱 자체 사용에는 지장 없음
+    });
+  });
+}
+</script>
+</body>
+</html>
